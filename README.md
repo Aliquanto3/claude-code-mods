@@ -41,6 +41,10 @@ Les éditions de fichiers et les commandes shell occupent beaucoup de place dans
 
 Le mod ne change que l'affichage : Claude reçoit toujours le résultat complet de chaque appel. Les appels que Claude Code range déjà dans ses propres lignes repliées (lectures, recherches) ne sont pas touchés.
 
+## Licence
+
+[Apache 2.0](LICENSE).
+
 ## Développer un mod
 
 ```
