@@ -1,0 +1,12 @@
+{
+  "name": "claude-code-mods",
+  "owner": { "name": "Aliquanto3", "url": "https://github.com/Aliquanto3" },
+  "description": "Mods pour l'interface de Claude Code",
+  "plugins": [
+    {
+      "name": "diff-replie",
+      "source": "./plugins/diff-replie",
+      "description": "Replie les diffs et la sortie des commandes en une ligne, et regroupe les appels consécutifs du même type"
+    }
+  ]
+}

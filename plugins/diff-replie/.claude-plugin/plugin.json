@@ -1,0 +1,8 @@
+{
+  "name": "diff-replie",
+  "version": "1.0.0",
+  "description": "Replie les diffs d'Edit et Write et la sortie des commandes shell en une ligne, regroupe les appels consécutifs du même type, et /details déplie tout",
+  "author": { "name": "Aliquanto3", "url": "https://github.com/Aliquanto3" },
+  "homepage": "https://github.com/Aliquanto3/claude-code-mods",
+  "types": "./types/index.d.ts"
+}

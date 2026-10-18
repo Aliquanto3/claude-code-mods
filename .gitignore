@@ -1,0 +1,5 @@
+# Types écrits par Claude Code au chargement d'un mod
+.claude-plugin/types/
+node_modules/
+*.log
+.DS_Store
