@@ -6,9 +6,3 @@ export type Runs = Record<string, string[]>
 export type LeaderOf = Record<string, string>
 /** Appel → sa ligne de synthèse (« epics.md (+2 −1) », description de la commande). */
 export type Summaries = Record<string, { label: string; isError: boolean }>
-
-declare module 'claude-code' {
-  interface PluginState {
-    'diff-replie': { expanded: Expanded; runs: Runs; leaderOf: LeaderOf; summaries: Summaries; showAll: boolean }
-  }
-}

@@ -18,7 +18,9 @@ Dans une session Claude Code, à l'invite du terminal :
 /plugin install diff-replie --marketplace Aliquanto3/claude-code-mods
 ```
 
-Répondre `y` pour ajouter le marketplace, puis choisir la portée (utilisateur par défaut). Le mod est actif aussitôt, sans redémarrage.
+Répondre `y` pour ajouter le marketplace, puis choisir la portée (utilisateur par défaut). Le mod est actif aussitôt, sans redémarrage, si les mods de code sont activés.
+
+**Prérequis** : les mods de code de Claude Code sont en accès anticipé. Sans la variable `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`, le mod s'installe mais ne se charge pas, sans message. Ajoutez-la au bloc `env` de `~/.claude/settings.json` (`"env": { "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1" }`), puis redémarrez Claude Code. Testé avec Claude Code 2.1.280 et 2.1.306.
 
 Depuis un shell :
 

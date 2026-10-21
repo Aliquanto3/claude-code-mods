@@ -1,0 +1,27 @@
+name: Valider les mods
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        plugin: [diff-replie]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Version épinglée : l'API des mods (early access) change sans préavis d'une version à l'autre.
+      - name: Installer Claude Code
+        run: npm install -g @anthropic-ai/claude-code@2.1.280
+      - name: claude plugin validate
+        run: claude plugin validate plugins/${{ matrix.plugin }} --strict
+      - name: claude plugin test
+        run: claude plugin test plugins/${{ matrix.plugin }}
+        env:
+          CLAUDE_CODE_ENABLE_FUNCTION_HOOKS: '1'
