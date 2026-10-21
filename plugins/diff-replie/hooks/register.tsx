@@ -2,9 +2,10 @@ import type { Register } from 'claude-code'
 
 import type { Expanded, LeaderOf, Runs, Summaries } from '../types'
 
-// État du mod, en mémoire pour le process (repart à zéro à chaque session, comme l'affichage
-// replié/déplié lui-même). `claude-code` n'exporte plus d'atome réactif : un changement qui doit
-// se voir hors du rendu qui l'a causé (le bouton pressé) passe par `$.ui.invalidate('ui.render')`.
+// État du mod, en mémoire du process et remis à zéro par `resetState` à chaque début et fin de
+// session (/clear, /resume), comme l'affichage replié/déplié lui-même. `claude-code` n'exporte plus
+// d'atome réactif : un changement qui doit se voir hors du rendu qui l'a causé (bouton, /details,
+// fin d'un appel) passe par `$.ui.invalidate('ui.render')`, qui redessine les rendus du mod.
 let expanded: Expanded = []
 let runs: Runs = {}
 let leaderOf: LeaderOf = {}
@@ -12,6 +13,14 @@ let summaries: Summaries = {}
 // Tout déplier d'un coup (commande /details) : le seul geste possible hors du plein écran,
 // où le terminal ne transmet pas les clics.
 let showAll = false
+
+function resetState() {
+  expanded = []
+  runs = {}
+  leaderOf = {}
+  summaries = {}
+  showAll = false
+}
 
 const COMMAND = 'details'
 const HINT = ' · /details pour déplier'
@@ -73,27 +82,21 @@ const groupOf = (id: string) => {
 
 // Retire des groupes du mod les appels que Claude Code a rangés dans ses propres lignes ;
 // rend, pour chaque groupe touché, le nouvel appel de tête (null si le groupe est vide).
+// Coût borné par la taille des groupes touchés, pas par l'historique de la session.
 function detach(gone: string[]): Record<string, string | null> {
-  const owners = leaderOf
   const moved: Record<string, string | null> = {}
-  const keptRuns = { ...runs }
-  for (const leader of new Set(gone.map(id => owners[id]).filter(Boolean))) {
-    const members = (keptRuns[leader] ?? []).filter(x => !gone.includes(x))
-    delete keptRuns[leader]
-    moved[leader] = members[0] ?? null
-    if (members.length > 0) keptRuns[members[0]] = members
-  }
-  runs = keptRuns
-  const keptLeaderOf = { ...leaderOf }
-  for (const id of gone) delete keptLeaderOf[id]
-  for (const [id, leader] of Object.entries(keptLeaderOf)) {
-    if (leader in moved) {
-      const newLeader = moved[leader]
-      if (newLeader) keptLeaderOf[id] = newLeader
-      else delete keptLeaderOf[id]
+  const goneIds = new Set(gone)
+  for (const leader of new Set(gone.map(id => leaderOf[id]).filter(Boolean))) {
+    const members = (runs[leader] ?? []).filter(x => !goneIds.has(x))
+    delete runs[leader]
+    const newLeader = members[0] ?? null
+    moved[leader] = newLeader
+    if (newLeader) {
+      runs[newLeader] = members
+      for (const id of members) leaderOf[id] = newLeader
     }
   }
-  leaderOf = keptLeaderOf
+  for (const id of gone) delete leaderOf[id]
   return moved
 }
 
@@ -101,9 +104,23 @@ export const register: Register = on => {
   // Suivi des appels consécutifs : même type, sans texte du modèle entre eux.
   let current: { leader: string; kind: Kind } | null = null
   let textSinceLastCall = false
+  // Appels déjà rangés par Claude Code dans ses propres lignes (voir ui.render ToolGroup).
+  const engineFolded = new Set<string>()
+  const resetSession = () => {
+    resetState()
+    current = null
+    textSinceLastCall = false
+    engineFolded.clear()
+  }
 
   on('session.start', async ($, e, next) => {
+    resetSession()
     await $.command.register({ name: COMMAND, description: 'Déplie ou replie les diffs et les sorties de commandes' })
+    return next(e)
+  })
+
+  on('session.end', ($, e, next) => {
+    resetSession()
     return next(e)
   })
 
@@ -142,22 +159,24 @@ export const register: Register = on => {
     const input = e as unknown as ShellInput & { file_path?: string }
     const pending = kind === 'shell' ? (input.description ?? input.command ?? 'commande') : baseName(input.file_path ?? 'fichier')
 
-    leaderOf = { ...leaderOf, [id]: leader }
-    runs = { ...runs, [leader]: [...(runs[leader] ?? []), id] }
-    summaries = { ...summaries, [id]: { label: `${pending} (en cours)`, isError: false } }
+    leaderOf[id] = leader
+    ;(runs[leader] ??= []).push(id)
+    summaries[id] = { label: `${pending} (en cours)`, isError: false }
+    // La ligne de tête du groupe affiche ce nouvel appel : la redessiner.
+    $.ui.invalidate('ui.render')
 
     const answer = await next(e)
     const isError = Boolean((answer as { isError?: boolean }).isError)
     const output = (answer as { result?: unknown }).result as EditOutput | undefined
     const label = kind === 'edit' && output && !isError ? editStats(e.tool, output) : pending
-    summaries = { ...summaries, [id]: { label: isError ? `${label} (échec)` : label, isError } }
+    summaries[id] = { label: isError ? `${label} (échec)` : label, isError }
+    $.ui.invalidate('ui.render')
     return answer
   })
 
   // Claude Code range déjà certains appels dans ses propres lignes repliées (lectures, `wc`,
   // éditions du dossier temporaire) : on les retire des groupes du mod, sinon un groupe
   // pourrait dépendre d'une ligne invisible. L'écriture part hors du dessin (refusée pendant).
-  const engineFolded = new Set<string>()
 
   on('ui.render', { component: 'ToolGroup' }, ($, e, next) => {
     const fresh = e.props.calls.map(c => c.tool_use_id).filter((id): id is string => Boolean(id) && !engineFolded.has(id!))

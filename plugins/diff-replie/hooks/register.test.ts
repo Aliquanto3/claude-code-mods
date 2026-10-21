@@ -127,3 +127,27 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(await promoted.find({ text: 'Lister · Dater' })).toBeDefined()
   })
 }
+
+test('une nouvelle session repart repliée et sans groupes (/clear, /resume)', async ($, on) => {
+  on('ui.render', ($, e) => $.ui.resolve(e).Text({ children: 'ligne du moteur' }))
+  on('tool.call', () => ({ result: { stdout: 'ok', stderr: '', interrupted: false }, isError: false }))
+  on('session.end', ($, e) => ({ sessionId: e.sessionId }))
+  for (const id of ['toolu_s1', 'toolu_s2']) await $.tool.call({ tool: 'Bash', tool_use_id: id, command: `echo ${id}` })
+  await $.command.run({ command: 'details', args: '' })
+  await $.session.end({ reason: 'clear', sessionId: 'ancienne', resume: false })
+  const result = await $.ui.mount({
+    plugin: 'diff-replie',
+    surface: 'desktop',
+    component: 'ToolResult',
+    props: { tool_use_id: 'toolu_9', tool: 'Edit', output: editOutput, isErrored: false },
+  })
+  expect(await result.find({ key: 'voir' })).toBeDefined()
+  const use = await $.ui.mount({
+    plugin: 'diff-replie',
+    surface: 'desktop',
+    component: 'ToolUse',
+    props: { tool_use_id: 'toolu_s1', tool: 'Bash', input: { command: 'echo toolu_s1' }, isRunning: false, isErrored: false, isInterrupted: false },
+  })
+  expect(await use.find({ text: '2 commandes shell' })).toBeUndefined()
+  expect(await use.find({ text: 'ligne du moteur' })).toBeDefined()
+})
